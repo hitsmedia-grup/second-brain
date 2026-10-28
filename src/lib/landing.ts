@@ -19,6 +19,14 @@ export const ENV_EXAMPLE_URL = `${GITHUB_URL}/blob/main/.env.example`;
 /** Same value as APP_HOME in src/lib/auth.ts (kept here so the landing chunk stays Supabase-free). */
 export const APP_HOME_PATH = "/today";
 
+export const LANDING_ENABLED_KEY = "second-brain-landing-enabled";
+
+export function getLandingEnabled(): boolean {
+  if (typeof window === "undefined") return true;
+  const v = localStorage.getItem(LANDING_ENABLED_KEY);
+  return v === null || v === "true";
+}
+
 /** Social preview image: public/og-image.png, rendered from scripts/brand/og-image.svg. */
 export const OG_IMAGE = {
   url: `${SITE_URL}/og-image.png`,
@@ -180,6 +188,18 @@ export async function redirectSignedInVisitor(target?: string): Promise<void> {
   throw target
     ? redirect({ href: target, replace: true })
     : redirect({ to: APP_HOME_PATH, replace: true });
+}
+
+/**
+ * `beforeLoad` of `/`: throws a router redirect to login for a signed-out visitor when the
+ * landing page is disabled in settings.
+ */
+export async function redirectIfLandingDisabled(): Promise<void> {
+  if (typeof window === "undefined") return;
+  if (!getLandingEnabled() && !(await isSignedIn())) {
+    const { LOGIN_PATH } = await import("@/lib/auth");
+    throw redirect({ to: LOGIN_PATH, replace: true });
+  }
 }
 
 /**
