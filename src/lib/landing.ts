@@ -20,11 +20,27 @@ export const ENV_EXAMPLE_URL = `${GITHUB_URL}/blob/main/.env.example`;
 export const APP_HOME_PATH = "/today";
 
 export const LANDING_ENABLED_KEY = "second-brain-landing-enabled";
+export const LANDING_ENABLED_COOKIE = "sb_landing_enabled";
 
 export function getLandingEnabled(): boolean {
-  if (typeof window === "undefined") return true;
-  const v = localStorage.getItem(LANDING_ENABLED_KEY);
-  return v === null || v === "true";
+  if (typeof window === "undefined") {
+    // Server-side: cannot access window or document in TanStack Start server context
+    // Cookie will be read from request headers in beforeLoad context if available
+    return true; // default enabled on server
+  }
+  
+  // Client-side: check localStorage (primary) or cookie (fallback)
+  const stored = localStorage.getItem(LANDING_ENABLED_KEY);
+  if (stored !== null) return stored === "true";
+  
+  const match = document.cookie.match(new RegExp(`${LANDING_ENABLED_COOKIE}=([^;]+)`));
+  return match ? match[1] === "true" : true;
+}
+
+export function setLandingEnabledCookie(enabled: boolean): void {
+  const value = enabled ? "true" : "false";
+  const maxAge = 365 * 24 * 60 * 60; // 1 year
+  document.cookie = `${LANDING_ENABLED_COOKIE}=${value}; path=/; max-age=${maxAge}; samesite=lax`;
 }
 
 /** Social preview image: public/og-image.png, rendered from scripts/brand/og-image.svg. */
@@ -195,7 +211,6 @@ export async function redirectSignedInVisitor(target?: string): Promise<void> {
  * landing page is disabled in settings.
  */
 export async function redirectIfLandingDisabled(): Promise<void> {
-  if (typeof window === "undefined") return;
   if (!getLandingEnabled() && !(await isSignedIn())) {
     const { LOGIN_PATH } = await import("@/lib/auth");
     throw redirect({ to: LOGIN_PATH, replace: true });

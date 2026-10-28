@@ -6,7 +6,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { DEMO_IDLE_OPTIONS, getIdleMinutes, IDLE_KEY } from "@/hooks/use-idle-logout";
-import { getLandingEnabled, LANDING_ENABLED_KEY } from "@/lib/landing";
+import { getLandingEnabled, LANDING_ENABLED_KEY, setLandingEnabledCookie } from "@/lib/landing";
 import { DemoDisabled } from "@/components/demo/DemoDisabled";
 import { isDemo } from "@/lib/app-mode";
 import { createFileRoute } from "@tanstack/react-router";
@@ -904,6 +904,7 @@ function LandingPageSetting() {
           onCheckedChange={(checked) => {
             setEnabled(checked);
             localStorage.setItem(LANDING_ENABLED_KEY, String(checked));
+            setLandingEnabledCookie(checked);
             toast.success(t("saved"));
           }}
         />
