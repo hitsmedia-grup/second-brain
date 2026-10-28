@@ -12,10 +12,17 @@ export const Route = createFileRoute("/")({
     // Check landing enabled from cookie (works server-side and client-side)
     const landingEnabled = await getLandingEnabledFromCookie();
     if (!landingEnabled) {
-      const { isSignedIn } = await import("@/lib/auth");
-      if (!(await isSignedIn())) {
+      // Server-side: always redirect (can't check session on server)
+      // Client-side: only redirect if not signed in
+      if (typeof window === "undefined") {
         const { LOGIN_PATH } = await import("@/lib/auth");
         throw redirect({ to: LOGIN_PATH, replace: true });
+      } else {
+        const { isSignedIn } = await import("@/lib/auth");
+        if (!(await isSignedIn())) {
+          const { LOGIN_PATH } = await import("@/lib/auth");
+          throw redirect({ to: LOGIN_PATH, replace: true });
+        }
       }
     }
     await redirectSignedInVisitor();
