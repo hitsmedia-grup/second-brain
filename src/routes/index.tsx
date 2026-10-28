@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 import { Landing } from "@/components/landing/Landing";
-import { landingHead, redirectSignedInVisitor, useRedirectSignedInVisitor, redirectIfLandingDisabled } from "@/lib/landing";
+import { landingHead, redirectSignedInVisitor, useRedirectSignedInVisitor, redirectIfLandingDisabled, useRedirectIfLandingDisabled } from "@/lib/landing";
 import { headLocale } from "@/lib/page-head";
 
 export const Route = createFileRoute("/")({
@@ -17,6 +17,7 @@ export const Route = createFileRoute("/")({
 });
 
 function LandingPage() {
+  useRedirectIfLandingDisabled();
   useRedirectSignedInVisitor();
   return <Landing />;
 }

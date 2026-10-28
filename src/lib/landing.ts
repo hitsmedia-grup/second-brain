@@ -203,6 +203,27 @@ export async function redirectIfLandingDisabled(): Promise<void> {
 }
 
 /**
+ * Client fallback for {@link redirectIfLandingDisabled}. On first page load `beforeLoad` ran
+ * on the server (where window is undefined) and is not repeated during hydration, so a
+ * signed-out visitor with landing disabled is forwarded from here after mount.
+ */
+export function useRedirectIfLandingDisabled(): void {
+  const navigate = useNavigate();
+  useEffect(() => {
+    let active = true;
+    void (async () => {
+      if (!getLandingEnabled() && !(await isSignedIn())) {
+        const { LOGIN_PATH } = await import("@/lib/auth");
+        if (active) void navigate({ to: LOGIN_PATH, replace: true });
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [navigate]);
+}
+
+/**
  * Client fallback for {@link redirectSignedInVisitor}. On the first page load `beforeLoad` ran
  * on the server (where the session is unknown) and is not repeated during hydration, so a
  * signed-in visitor opening a `/` or `/login` bookmark is forwarded from here after mount.
