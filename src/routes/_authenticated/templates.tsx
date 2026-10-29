@@ -52,6 +52,7 @@ type Payload = {
   priority?: string;
   tags?: string[];
   estimate?: number;
+  subtasks?: string[];
 };
 
 function TemplatesPage() {
@@ -73,7 +74,7 @@ function TemplatesPage() {
 
   async function use(t: (typeof data)[number]) {
     const p = (t.payload ?? {}) as Payload;
-    if (t.kind === "task")
+    if (t.kind === "task") {
       newTask({
         title: p.title ?? t.name,
         description: p.body ?? null,
@@ -81,7 +82,10 @@ function TemplatesPage() {
         tags: p.tags ?? [],
         estimate_minutes: p.estimate ?? 25,
       });
-    else {
+      // Note: subtasks from template are not pre-filled in the task dialog draft mode,
+      // because TaskDialogProvider doesn't expose defaults.subtasks yet. They would need
+      // to be stored in TaskDefaults and passed through, which is a larger change.
+    } else {
       const body = p.body ?? "";
       const blocks = body
         .split("\n")
@@ -231,6 +235,7 @@ function TemplateDialog({
   const [priority, setPriority] = useState("medium");
   const [tags, setTags] = useState("");
   const [estimate, setEstimate] = useState(25);
+  const [subtasks, setSubtasks] = useState("");
   const draftTemplate = useServerFn(draftTemplateFromText);
   const { t: tr } = usePreferences();
   async function save() {
@@ -238,19 +243,30 @@ function TemplateDialog({
       toast.error(tr("wsTplNameRequired"));
       return;
     }
-    await onSave(kind, name.trim(), {
+    const payload: Payload = {
       title,
       body,
       tags: tags
         .split(/[,\s]+/)
         .map((x) => x.replace(/^#/, ""))
         .filter(Boolean),
-      ...(kind === "task" ? { priority, estimate } : {}),
-    });
+    };
+    if (kind === "task") {
+      payload.priority = priority;
+      payload.estimate = estimate;
+      if (subtasks.trim()) {
+        payload.subtasks = subtasks
+          .split("\n")
+          .map((s) => s.trim())
+          .filter(Boolean);
+      }
+    }
+    await onSave(kind, name.trim(), payload);
     setName("");
     setTitle("");
     setBody("");
     setTags("");
+    setSubtasks("");
   }
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -273,6 +289,7 @@ function TemplateDialog({
               setTags(d.tags.join(", "));
               setPriority(d.priority);
               setEstimate(d.estimate);
+              setSubtasks((d as { subtasks?: string[] }).subtasks?.join("\n") ?? "");
             }}
           />
           <div className="grid gap-3 sm:grid-cols-2 sm:gap-2">
@@ -335,6 +352,16 @@ function TemplateDialog({
                 aria-label={tr("wsTplEstimate")}
               />
             </div>
+          )}
+          {kind === "task" && (
+            <Textarea
+              value={subtasks}
+              onChange={(e) => setSubtasks(e.target.value)}
+              placeholder={tr("wsTplSubtasksPlaceholder")}
+              rows={3}
+              className="min-h-20"
+              aria-label={tr("wsTplSubtasks")}
+            />
           )}
         </div>
         <DialogFooter>
