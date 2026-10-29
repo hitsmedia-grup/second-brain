@@ -354,14 +354,19 @@ function TemplateDialog({
             </div>
           )}
           {kind === "task" && (
-            <Textarea
-              value={subtasks}
-              onChange={(e) => setSubtasks(e.target.value)}
-              placeholder={tr("wsTplSubtasksPlaceholder")}
-              rows={3}
-              className="min-h-20"
-              aria-label={tr("wsTplSubtasks")}
-            />
+            <div className="space-y-1.5">
+              <div className="text-sm text-muted-foreground">
+                Sub-tugas / checklist
+              </div>
+              <Textarea
+                value={subtasks}
+                onChange={(e) => setSubtasks(e.target.value)}
+                placeholder="Tambah sub-tugas..."
+                rows={3}
+                className="min-h-20"
+                aria-label="Sub-tugas / checklist"
+              />
+            </div>
           )}
         </div>
         <DialogFooter>
