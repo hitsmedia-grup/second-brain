@@ -407,18 +407,52 @@ function TemplateDialog({
             </div>
           )}
           {kind === "task" && (
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               <div className="text-sm text-muted-foreground">
                 Sub-tugas / checklist
               </div>
-              <Textarea
-                value={subtasks}
-                onChange={(e) => setSubtasks(e.target.value)}
-                placeholder="Tambah sub-tugas..."
-                rows={3}
-                className="min-h-20"
-                aria-label="Sub-tugas / checklist"
-              />
+              {subtasks.length > 0 && (
+                <ul className="space-y-1">
+                  {subtasks.map((sub, i) => (
+                    <li
+                      key={i}
+                      className="group flex items-center gap-2 rounded-lg px-1 py-1 hover:bg-accent/50"
+                    >
+                      <div className="h-4 w-4 shrink-0 rounded-full border-2 border-muted-foreground/30" />
+                      <span className="flex-1 truncate text-sm">{sub}</span>
+                      <IconButton
+                        label="Hapus subtask"
+                        variant="danger-ghost"
+                        size="icon-sm"
+                        className="opacity-100 focus-visible:opacity-100 md:opacity-0 md:group-hover:opacity-100"
+                        onClick={() => setSubtasks(subtasks.filter((_, idx) => idx !== i))}
+                      >
+                        <Trash2 />
+                      </IconButton>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (subtaskDraft.trim()) {
+                    setSubtasks([...subtasks, subtaskDraft.trim()]);
+                    setSubtaskDraft("");
+                  }
+                }}
+                className="flex gap-2"
+              >
+                <Input
+                  value={subtaskDraft}
+                  onChange={(e) => setSubtaskDraft(e.target.value)}
+                  placeholder="Tambah sub-tugas..."
+                  className="h-8"
+                />
+                <IconButton type="submit" label="Tambah subtask" variant="secondary" size="icon-sm">
+                  <Plus />
+                </IconButton>
+              </form>
             </div>
           )}
         </div>
