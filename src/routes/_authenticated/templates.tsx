@@ -1,8 +1,8 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useState } from "react";
-import { CheckSquare, Plus, StickyNote, Trash2 } from "lucide-react";
+import { useState, useEffect } from "react";
+import { CheckSquare, Pencil, Plus, StickyNote, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { FillFromText } from "@/components/common/FillFromText";
@@ -63,6 +63,7 @@ function TemplatesPage() {
   const { t: tr } = usePreferences();
   const confirm = useConfirm();
   const [open, setOpen] = useState(false);
+  const [editingTemplate, setEditingTemplate] = useState<(typeof data)[number] | null>(null);
   const { data = [] } = useQuery({
     queryKey: ["templates"],
     queryFn: async () => {
@@ -171,14 +172,27 @@ function TemplatesPage() {
                       {p.tags?.length ? ` · ${p.tags.map((x) => `#${x}`).join(" ")}` : ""}
                     </p>
                   </div>
-                  <IconButton
-                    variant="danger-ghost"
-                    size="icon-sm"
-                    onClick={() => remove(t.id)}
-                    label={tr("wsTplDelete")}
-                  >
-                    <Trash2 />
-                  </IconButton>
+                  <div className="flex gap-1">
+                    <IconButton
+                      variant="secondary"
+                      size="icon-sm"
+                      onClick={() => {
+                        setEditingTemplate(t);
+                        setOpen(true);
+                      }}
+                      label="Edit template"
+                    >
+                      <Pencil />
+                    </IconButton>
+                    <IconButton
+                      variant="danger-ghost"
+                      size="icon-sm"
+                      onClick={() => remove(t.id)}
+                      label={tr("wsTplDelete")}
+                    >
+                      <Trash2 />
+                    </IconButton>
+                  </div>
                 </div>
                 {p.body && (
                   <p className="mt-2 line-clamp-4 whitespace-pre-line text-xs text-muted-foreground">
@@ -201,10 +215,19 @@ function TemplatesPage() {
       )}
       <TemplateDialog
         open={open}
-        onOpenChange={setOpen}
-        onSave={async (kind, name, payload) => {
-          await seed(kind, name, payload);
+        onOpenChange={(v) => {
+          setOpen(v);
+          if (!v) setEditingTemplate(null);
+        }}
+        initial={editingTemplate}
+        onSave={async (id, kind, name, payload) => {
+          if (id) {
+            await update(id, kind, name, payload);
+          } else {
+            await seed(kind, name, payload);
+          }
           setOpen(false);
+          setEditingTemplate(null);
         }}
       />
     </PageContainer>
@@ -217,16 +240,24 @@ function TemplatesPage() {
     else toast.success(tr("wsTplSaved"));
     void qc.invalidateQueries({ queryKey: ["templates"] });
   }
+  async function update(id: string, kind: "task" | "note", name: string, payload: Payload) {
+    const { error } = await supabase.from("templates").update({ kind, name, payload }).eq("id", id);
+    if (error) toastError(error);
+    else toast.success(tr("wsTplSaved"));
+    void qc.invalidateQueries({ queryKey: ["templates"] });
+  }
 }
 
 function TemplateDialog({
   open,
   onOpenChange,
+  initial,
   onSave,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
-  onSave: (kind: "task" | "note", name: string, p: Payload) => Promise<void>;
+  initial: { id: string; kind: "task" | "note"; name: string; payload: unknown } | null;
+  onSave: (id: string | null, kind: "task" | "note", name: string, p: Payload) => Promise<void>;
 }) {
   const [kind, setKind] = useState<"task" | "note">("task");
   const [name, setName] = useState("");
@@ -239,6 +270,33 @@ function TemplateDialog({
   const [subtaskDraft, setSubtaskDraft] = useState("");
   const draftTemplate = useServerFn(draftTemplateFromText);
   const { t: tr } = usePreferences();
+
+  // Sync state when initial changes (edit mode)
+  useEffect(() => {
+    if (initial) {
+      const p = (initial.payload ?? {}) as Payload;
+      setKind(initial.kind);
+      setName(initial.name);
+      setTitle(p.title ?? "");
+      setBody(p.body ?? "");
+      setPriority(p.priority ?? "medium");
+      setTags(p.tags?.join(", ") ?? "");
+      setEstimate(p.estimate ?? 25);
+      setSubtasks(p.subtasks ?? []);
+    } else {
+      // Reset for new template
+      setKind("task");
+      setName("");
+      setTitle("");
+      setBody("");
+      setPriority("medium");
+      setTags("");
+      setEstimate(25);
+      setSubtasks([]);
+    }
+    setSubtaskDraft("");
+  }, [initial]);
+
   async function save() {
     if (!name.trim()) {
       toast.error(tr("wsTplNameRequired"));
@@ -259,13 +317,7 @@ function TemplateDialog({
         payload.subtasks = subtasks;
       }
     }
-    await onSave(kind, name.trim(), payload);
-    setName("");
-    setTitle("");
-    setBody("");
-    setTags("");
-    setSubtasks([]);
-    setSubtaskDraft("");
+    await onSave(initial?.id ?? null, kind, name.trim(), payload);
   }
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -355,52 +407,18 @@ function TemplateDialog({
             </div>
           )}
           {kind === "task" && (
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <div className="text-sm text-muted-foreground">
                 Sub-tugas / checklist
               </div>
-              {subtasks.length > 0 && (
-                <ul className="space-y-1">
-                  {subtasks.map((sub, i) => (
-                    <li
-                      key={i}
-                      className="group flex items-center gap-2 rounded-lg px-1 py-1 hover:bg-accent/50"
-                    >
-                      <div className="h-4 w-4 shrink-0 rounded-full border-2 border-muted-foreground/30" />
-                      <span className="flex-1 truncate text-sm">{sub}</span>
-                      <IconButton
-                        label="Hapus subtask"
-                        variant="danger-ghost"
-                        size="icon-sm"
-                        className="opacity-100 focus-visible:opacity-100 md:opacity-0 md:group-hover:opacity-100"
-                        onClick={() => setSubtasks(subtasks.filter((_, idx) => idx !== i))}
-                      >
-                        <Trash2 />
-                      </IconButton>
-                    </li>
-                  ))}
-                </ul>
-              )}
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  if (subtaskDraft.trim()) {
-                    setSubtasks([...subtasks, subtaskDraft.trim()]);
-                    setSubtaskDraft("");
-                  }
-                }}
-                className="flex gap-2"
-              >
-                <Input
-                  value={subtaskDraft}
-                  onChange={(e) => setSubtaskDraft(e.target.value)}
-                  placeholder="Tambah sub-tugas..."
-                  className="h-8"
-                />
-                <IconButton type="submit" label="Tambah subtask" variant="secondary" size="icon-sm">
-                  <Plus />
-                </IconButton>
-              </form>
+              <Textarea
+                value={subtasks}
+                onChange={(e) => setSubtasks(e.target.value)}
+                placeholder="Tambah sub-tugas..."
+                rows={3}
+                className="min-h-20"
+                aria-label="Sub-tugas / checklist"
+              />
             </div>
           )}
         </div>
